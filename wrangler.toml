@@ -1,0 +1,61 @@
+name = "noma-estudio-demo"
+account_id = "2305b962dad97903998baa3cb2e86802"
+main = "src/worker.js"
+compatibility_date = "2025-03-20"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+preview_urls = false
+
+[vars]
+APP_ORIGIN = "https://noma-estudio-demo.torch-ringer.workers.dev"
+RESEND_FROM_EMAIL = "onboarding@resend.dev"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "404-page"
+run_worker_first = ["/api/*", "/catalogo", "/catalogo/*", "/accesorios", "/accesorios/*", "/carrito", "/checkout", "/confirmacion", "/admin", "/producto/*"]
+
+[[ratelimits]]
+name = "AUTH_EDGE_REGISTER_LIMITER"
+namespace_id = "61384027"
+[ratelimits.simple]
+limit = 30
+period = 60
+
+[[ratelimits]]
+name = "AUTH_EDGE_LOGIN_IP_LIMITER"
+namespace_id = "61384028"
+[ratelimits.simple]
+limit = 30
+period = 60
+
+[[ratelimits]]
+name = "AUTH_EDGE_LOGIN_PAIR_LIMITER"
+namespace_id = "61384029"
+[ratelimits.simple]
+limit = 10
+period = 60
+
+[[ratelimits]]
+name = "AUTH_EDGE_PASSWORD_RESET_LIMITER"
+namespace_id = "61384030"
+[ratelimits.simple]
+limit = 10
+period = 60
+
+[[ratelimits]]
+name = "GUEST_EDGE_CREATE_LIMITER"
+namespace_id = "61384031"
+[ratelimits.simple]
+limit = 30
+period = 60
+
+[triggers]
+crons = ["0 5 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bikestore-store"
+database_id = "4f5f5bd3-5846-4e27-b679-ca5e3504d06c"
+migrations_dir = "migrations"

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+
+<html lang="es">
+<head>
+<meta charset="utf-8"/><base href="/"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<meta content="#171717" name="theme-color"/>
+<meta content="BikeStore — catálogo de ciclismo con existencias y carrito persistentes." name="description"/>
+<title>BIKESTORE — todo lo que tu bici necesita</title>
+<meta content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'" http-equiv="Content-Security-Policy"/>
+<link href="styles.css" rel="stylesheet"/>
+<script defer="" src="app.js"></script>
+</head>
+<body>
+<div class="demo-ribbon" role="status">
+<span aria-hidden="true" class="ribbon-dot"></span>
+<span><strong>DEMO · ENTORNO DE PRUEBA</strong><span class="ribbon-copy">No se venden productos ni se procesan pagos o envíos reales.</span></span>
+<a href="/#demo-note">Qué significa</a>
+</div>
+<div class="topline"><span>TU PRÓXIMA AVENTURA EMPIEZA EN BIKESTORE</span><i aria-hidden="true"></i><span>Envío de demostración · sin costo real</span></div>
+<header class="site-header store-header">
+<a aria-label="BikeStore, inicio" class="brand-bike" data-route="/" href="/">
+<img alt="" aria-hidden="true" class="brand-bike-mark" src="assets/bikestore/bike-mark.svg"/><span class="brand-bike-name">BIKE<span>STORE</span></span>
+</a>
+<nav aria-label="Navegación principal" class="main-nav">
+<a class="nav-link" data-route="/" href="/">Inicio</a>
+<a class="nav-link" data-route="/catalogo" href="/catalogo">Catálogo</a>
+<a class="nav-link" data-route="/accesorios" href="/accesorios">Accesorios</a>
+<button class="nav-link" data-view="admin" hidden="" id="adminNavLink">Administración</button>
+</nav>
+<div class="header-actions">
+<button class="header-text-button account-button" data-action="account">Iniciar sesión</button>
+<button class="header-register" data-action="register">Registrarse</button>
+<button class="header-text-button" data-action="logout" hidden="" id="logoutButton">Salir</button>
+<label class="header-search"><span class="sr-only">Buscar productos</span><input autocomplete="off" id="searchInput" placeholder="Buscar en catálogo y accesorios" type="search"/><span aria-hidden="true">⌕</span></label>
+<button aria-label="Abrir carrito" class="bag-button" data-action="open-cart">
+<svg aria-hidden="true" class="bag-icon" viewBox="0 0 24 24" width="22" height="22"><path d="M2.5 3.5h2.2l2.4 11.2a2.1 2.1 0 0 0 2 1.6h8.3a2.1 2.1 0 0 0 2-1.5L22 7.5H6.1" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/><circle cx="9.5" cy="20" r="1.4" fill="currentColor"/><circle cx="18.3" cy="20" r="1.4" fill="currentColor"/></svg><span class="bag-count" id="bagCount">0</span>
+</button>
+</div>
+<button aria-expanded="false" aria-label="Abrir menú" class="menu-button" data-action="menu"><span></span><span></span></button>
+</header>
+<main id="mainContent">
+<section class="view home-view" id="homeView"><section aria-labelledby="heroTitle" class="bike-hero" id="inicio">
+<img alt="Bicicleta lista para salir a rodar por un camino de montaña" class="bike-hero-photo" src="assets/bikestore/hero-ride.jpg"/>
+<div aria-hidden="true" class="bike-hero-shade"></div>
+<div class="bike-hero-layout wrap">
+<div class="bike-hero-content">
+<p class="hero-kicker">TIENDA DE BICICLETAS</p>
+<h1 id="heroTitle">Tu equipo de ciclismo,<br/><span>en un solo lugar.</span></h1>
+<p class="hero-lead">Bicicletas, repuestos y accesorios para ruta, montaña y ciudad, con taller propio para mantenimiento y reparación.</p>
+<div class="hero-actions">
+<a class="button button-lime" data-route="/catalogo" href="/catalogo">Ver catálogo <span aria-hidden="true">→</span></a>
+</div>
+</div>
+<aside aria-label="Accesos rápidos" class="hero-quick-access">
+<a class="hero-access-card" data-route="/accesorios" href="/accesorios">
+<span aria-hidden="true" class="hero-access-icon">♧</span><span class="hero-access-title">Accesorios</span><span aria-hidden="true" class="hero-access-arrow">→</span>
+</a>
+<a class="hero-access-card hero-access-primary" data-route="/catalogo" href="/catalogo">
+<span aria-hidden="true" class="hero-access-icon">▦</span><span class="hero-access-title">Ver catálogo</span><span aria-hidden="true" class="hero-access-arrow">→</span>
+</a>
+</aside>
+</div>
+<div aria-hidden="true" class="hero-vertical-note">RUTA · MONTAÑA · CIUDAD</div>
+</section><section class="featured-section" id="recomendados">
+<div class="wrap">
+<div class="section-heading section-heading-dark">
+<div><p class="eyebrow">RECOMENDACIONES · SELECCIÓN DEMO</p><h2>Empieza <span>por aquí.</span></h2></div>
+<a class="light-link" data-route="/catalogo" href="/catalogo">Ver todo el catálogo <span aria-hidden="true">→</span></a>
+</div>
+<div class="product-grid featured-grid" id="featuredGrid"></div>
+</div>
+</section></section><section class="view catalog-page-view" hidden="True" id="catalogView"><section class="catalog-section wrap" id="catalogo">
+<div class="section-heading">
+<div><p class="eyebrow">CATÁLOGO BIKESTORE</p><h2>Bicicletas <span>y equipo.</span></h2></div>
+<p class="section-aside">Precios de demostración.<br/>Existencias consultadas en servidor.</p>
+</div>
+<div class="catalog-toolbar">
+<label class="page-search-field"><span aria-hidden="true">⌕</span><span class="sr-only">Buscar productos</span><input aria-label="Buscar productos" autocomplete="off" id="catalogSearchInput" placeholder="Buscar productos" type="search"/></label><div aria-label="Filtrar por categoría" class="category-filters" id="categoryFilters"></div>
+<label class="sort-field"><span>Ordenar por</span><select id="sortSelect"><option value="featured">Recomendados</option><option value="asc">Precio: menor a mayor</option><option value="desc">Precio: mayor a menor</option></select></label><label class="availability-field"><span>Disponibilidad</span><select aria-label="Filtrar por disponibilidad" id="catalogAvailability"><option value="all">Cualquier stock</option><option value="available">Disponibles</option><option value="soldout">Agotados</option></select></label>
+</div>
+<div class="results-line"><span id="resultCount">0 productos</span><button class="text-button" data-action="clear-filters" id="clearFilters">Limpiar filtros</button></div>
+<div aria-live="polite" class="product-grid catalog-grid" id="productGrid"></div>
+<div class="empty-state" hidden="" id="emptyProducts"><span class="empty-icon">⌕</span><h3>No encontramos ese producto</h3><p>Prueba otra palabra o categoría.</p><button class="button button-outline" data-action="clear-filters">Ver todo el catálogo</button></div>
+</section></section><section class="view accessories-page-view" hidden="True" id="accessoriesView"><div class="accessories-banner">
+<img alt="Kit de ruta y accesorios para bicicleta" class="accessories-banner-image" src="/assets/bikestore/road-kit.jpg"/>
+<div aria-hidden="true" class="accessories-banner-shade"></div>
+<div class="accessories-banner-content wrap">
+<p class="eyebrow">ACCESORIOS BIKESTORE</p>
+<h1>Todo lo que tu bici necesita para <span>rodar.</span></h1>
+<p>Accesorios y equipamiento para usar o poner en tu bicicleta: comodidad, seguridad y confianza en cada salida.</p>
+<a class="button button-lime" data-route="/catalogo" href="/catalogo">Explorar todo el catálogo <span aria-hidden="true">→</span></a>
+</div>
+</div><section aria-labelledby="accessoriesTitle" class="catalog-section wrap accessories-catalog">
+<div class="section-heading">
+<div><p class="eyebrow">EQUIPAMIENTO Y COMPONENTES</p><h2 id="accessoriesTitle">Accesorios para <span>cada rodada.</span></h2></div>
+<p class="section-aside">Incluye cascos, ropa, repuestos y accesorios.<br/>Existencias consultadas en servidor.</p>
+</div>
+<div class="catalog-toolbar accessories-toolbar">
+<label class="page-search-field"><span aria-hidden="true">⌕</span><span class="sr-only">Buscar accesorios</span><input aria-label="Buscar accesorios" autocomplete="off" id="accessorySearchInput" placeholder="Buscar accesorios" type="search"/></label><div aria-label="Filtrar accesorios por categoría" class="category-filters" id="accessoryCategoryFilters"></div>
+<label class="sort-field"><span>Ordenar por</span><select id="accessorySortSelect"><option value="featured">Recomendados</option><option value="asc">Precio: menor a mayor</option><option value="desc">Precio: mayor a menor</option></select></label>
+<label class="availability-field"><span>Disponibilidad</span><select aria-label="Filtrar accesorios por disponibilidad" id="accessoryAvailability"><option value="all">Cualquier stock</option><option value="available">Disponibles</option><option value="soldout">Agotados</option></select></label>
+</div>
+<div class="results-line"><span id="accessoryResultCount">0 productos</span><button class="text-button" data-action="clear-filters" data-filter-scope="accessories">Limpiar filtros</button></div>
+<div aria-live="polite" class="product-grid catalog-grid" id="accessoryProductGrid"></div>
+<div class="empty-state" hidden="" id="emptyAccessories"><span class="empty-icon">⌕</span><h3>No encontramos accesorios</h3><p>Prueba otra palabra, categoría o disponibilidad.</p><button class="button button-outline" data-action="clear-filters" data-filter-scope="accessories">Ver todo el equipamiento</button></div>
+<div class="demo-manifesto accessories-demo-note"><span class="demo-manifesto-mark">!</span><div><strong>Carrito y existencias persistentes.</strong><p>El checkout, los pagos y los envíos siguen siendo únicamente de demostración.</p></div></div>
+</section></section>
+<section class="view product-view" hidden="" id="productView">
+<div class="wrap product-view-wrap"><button class="back-link" data-action="back-to-catalog">← Volver al catálogo</button><div id="productDetailContent"></div></div>
+</section>
+<section class="view cart-page-view" hidden="" id="cartView">
+<div class="wrap cart-page-wrap">
+<div class="cart-page-heading"><div><p class="eyebrow">TU SELECCIÓN</p><h1>Tu carrito <span>BikeStore.</span></h1><p>Tu selección se conserva en el servidor; el checkout no realiza cobros.</p></div><span class="cart-page-count" id="cartPageCount">0 productos</span></div>
+<div class="cart-page-layout">
+<section aria-label="Productos del carrito" class="cart-list-panel"><div class="cart-list-head"><span>PRODUCTO</span><span>CANTIDAD</span><span>TOTAL</span></div><div id="cartPageItems"></div><div class="cart-page-empty" hidden="" id="cartPageEmpty"><h2>Tu carrito está vacío.</h2><p>Encuentra algo para tu próxima salida.</p><button class="button button-lime" data-action="continue-shopping">Volver a la tienda</button></div><button class="text-button continue-link" data-action="continue-shopping">← Seguir explorando</button></section>
+<aside class="order-summary cart-order-summary"><div class="summary-heading"><h2>Resumen del pedido</h2><span>DEMO</span></div><div class="summary-line"><span id="cartPageSubtotalLabel">Subtotal (0 productos)</span><strong id="pageCartSubtotal">$0</strong></div><div class="summary-line"><span>Envío de prueba</span><strong>Incluido</strong></div><div class="summary-line summary-total"><span>Total ilustrativo</span><strong id="pageCartTotal">$0</strong></div><div class="summary-demo"><span aria-hidden="true">!</span> El resumen y los precios no tienen validez comercial.</div><button class="button button-lime button-wide" data-action="checkout">Continuar al checkout demo <span aria-hidden="true">→</span></button><p class="cart-safe-note">No ingreses datos de pago reales.</p></aside>
+</div>
+</div>
+</section>
+<section class="view checkout-view" hidden="" id="checkoutView">
+<div class="wrap checkout-wrap">
+<button class="back-link" data-action="back-to-cart"><span aria-hidden="true">←</span> Volver al carrito</button>
+<div class="checkout-heading"><p class="eyebrow">PASO FINAL DE LA DEMO</p><h1>Detalles de <span>entrega.</span></h1><p>Usa información ficticia. No se enviará ni cobrará nada.</p></div>
+<div class="checkout-layout">
+<form class="checkout-form" id="checkoutForm" novalidate="">
+<div class="form-section-title"><span>01</span><h2>¿A quién le llega?</h2></div>
+<div class="field-row"><label>Nombre completo<input autocomplete="name" minlength="2" name="name" placeholder="Alex Ejemplo" required=""/></label><label>Correo electrónico<input autocomplete="email" name="email" placeholder="alex@ejemplo.com" required="" type="email"/></label></div>
+<div class="field-row"><label>Dirección de entrega<input autocomplete="street-address" minlength="5" name="address" placeholder="Calle 00 # 00-00" required=""/></label><label>Ciudad<input autocomplete="address-level2" name="city" placeholder="Bogotá" required=""/></label></div>
+<label>Nota para la entrega <span class="optional">(opcional)</span><textarea maxlength="180" name="note" placeholder="Un dato útil para la entrega de prueba" rows="3"></textarea></label>
+<div class="form-section-title payment-title"><span>02</span><h2>Pago de demostración</h2></div>
+<div class="simulation-box"><span class="sim-icon">!</span><div><strong>No ingreses datos bancarios.</strong><p>Al continuar se generará una confirmación de pedido ficticia en este navegador. No hay pasarela ni cargo.</p></div></div>
+<p class="form-error" hidden="" id="checkoutError" role="alert"></p>
+<button class="button button-lime button-wide" type="submit">Simular pedido <span aria-hidden="true">→</span></button>
+<p class="fine-print">Al continuar, confirmas que entiendes que esto es solo una demostración.</p>
+</form>
+<aside class="order-summary"><div class="summary-heading"><h2>Tu selección</h2><span id="checkoutItemCount">0 productos</span></div><div class="checkout-items" id="checkoutItems"></div><div class="summary-line"><span>Subtotal</span><strong id="checkoutSubtotal">$0</strong></div><div class="summary-line"><span>Envío demo</span><strong>Incluido</strong></div><div class="summary-line summary-total"><span>Total ilustrativo</span><strong id="checkoutTotal">$0</strong></div><div class="summary-demo"><span aria-hidden="true">!</span> Valores y confirmación sin validez comercial.</div></aside>
+</div>
+</div>
+</section>
+<section class="view success-view" hidden="" id="successView">
+<div class="success-card"><div class="success-mark">✓</div><p class="eyebrow">CONFIRMACIÓN DE PRUEBA</p><h1>Listo, <span>por ahora.</span></h1><p>Esta confirmación es ilustrativa y se guarda localmente en este navegador. No se registró una compra ni se realizó ningún pago o envío.</p><div class="order-reference"><span>NÚMERO DE PEDIDO DEMO</span><strong id="successOrderNo">—</strong></div><div class="success-summary" id="successSummary"></div><div class="success-actions"><button class="button button-lime" data-action="continue-shopping">Volver a la tienda <span aria-hidden="true">→</span></button></div></div>
+</section>
+<section class="view admin-view" hidden="" id="adminView">
+<div class="admin-layout">
+<aside class="admin-sidebar">
+<a class="admin-brand" data-route="/" href="/"><img alt="" aria-hidden="true" class="brand-bike-mark" src="assets/bikestore/bike-mark.svg"/><span>BIKE<span>STORE</span><small>ADMINISTRACIÓN</small></span></a>
+<div class="admin-demo-note"><span class="ribbon-dot"></span><span><strong>Sesión protegida</strong><small>Permisos comprobados en servidor</small></span></div>
+<p class="sidebar-label">CATÁLOGO</p>
+<button class="sidebar-link active" data-admin-tab="products"><span>▧</span> Productos y stock</button>
+<div class="sidebar-bottom"><span>Existencias persistentes en D1</span></div>
+</aside>
+<div class="admin-main">
+<div class="admin-topbar"><div class="breadcrumb">BikeStore <span>/</span> <strong id="adminBreadcrumb">Productos y stock</strong></div><div class="admin-top-actions"><span class="admin-date" id="todayLabel"></span><button class="button button-outline button-small" data-route="/">← Volver a tienda</button></div></div>
+<div class="admin-content">
+<div class="admin-warning"><span>!</span><p><strong>Acceso restringido.</strong> Solo la cuenta administradora autorizada puede crear, actualizar o dar de baja productos. Las bajas son lógicas y conservan el historial.</p></div>
+<section class="admin-tab" id="adminProducts">
+<div class="admin-page-title"><div><p class="eyebrow">CATÁLOGO · EXISTENCIAS EN SERVIDOR</p><h1>Productos <span>y stock.</span></h1><p>Los cambios quedan guardados en la base de datos.</p></div><button class="button button-lime button-small" data-action="new-product">+ Añadir producto</button></div>
+<div class="table-toolbar"><label class="search-field admin-search"><span aria-hidden="true">⌕</span><input id="productAdminSearch" placeholder="Buscar por nombre" type="search"/></label><label class="compact-select"><span class="sr-only">Filtrar categoría</span><select id="productAdminCategory"><option value="all">Todas las categorías</option></select></label><span class="table-count" id="adminProductCount"></span></div>
+<div class="table-scroll"><table class="data-table"><thead><tr><th>PRODUCTO</th><th>CATEGORÍA</th><th>PRECIO</th><th>EXISTENCIAS</th><th>ESTADO</th><th>ACCIONES</th></tr></thead><tbody id="adminProductRows"></tbody></table></div>
+<div class="admin-footnote">El stock se actualiza mediante movimientos auditables. Eliminar un producto lo inactiva y lo oculta del catálogo.</div>
+</section>
+</div>
+</div>
+</div>
+</section>
+</main>
+<footer class="site-footer"><div class="wrap footer-main"><a class="brand-bike" data-route="/" href="/"><img alt="" aria-hidden="true" class="brand-bike-mark" src="assets/bikestore/bike-mark.svg"/><span class="brand-bike-name">BIKE<span>STORE</span></span></a><p>Bicicletas, repuestos y servicio técnico en un solo lugar.</p><div><a data-route="/" href="/">Inicio</a><span>·</span><a data-route="/catalogo" href="/catalogo">Catálogo</a><span>·</span><a data-route="/accesorios" href="/accesorios">Accesorios</a></div></div><div class="wrap footer-bottom"><span>© 2026 BikeStore · Catálogo persistente</span><span id="demo-note">Checkout, pagos y envíos de demostración; no ingreses datos bancarios.</span></div></footer>
+<div class="overlay" hidden="" id="overlay"></div>
+<aside aria-hidden="true" aria-label="Tu carrito" class="cart-drawer" id="cartDrawer" inert="">
+<div class="drawer-head"><div><p class="eyebrow">SELECCIÓN BIKESTORE</p><h2>Tu carrito <span id="drawerCount">(0)</span></h2></div><button aria-label="Cerrar carrito" class="close-button" data-action="close-cart">×</button></div>
+<div class="cart-demo-callout"><span>!</span><p>El carrito se conserva en el servidor; no reserva stock ni procesa pagos.</p></div>
+<div class="cart-items" id="cartItems"></div>
+<div class="cart-empty" id="cartEmpty"><div>＋</div><h3>Tu carrito está vacío.</h3><p>Agrega algo para tu próxima salida.</p><button class="button button-outline" data-action="close-cart">Explorar catálogo</button></div>
+<div class="drawer-footer" id="drawerFooter"><div class="subtotal-row"><span>Subtotal ilustrativo</span><strong id="cartSubtotal">$0</strong></div><div class="shipping-row"><span>Envío de prueba</span><span>Incluido</span></div><p>Precios demostrativos en pesos colombianos.</p><button class="button button-outline button-wide" data-action="view-cart">Ver carrito completo</button><button class="button button-lime button-wide" data-action="checkout">Continuar al checkout demo <span aria-hidden="true">→</span></button><div class="secure-note">No ingreses datos de pago reales.</div></div>
+</aside>
+<div class="modal-backdrop" hidden="" id="modalBackdrop">
+<section aria-labelledby="modalTitle" aria-modal="true" class="modal-card" id="modalCard" role="dialog"><button aria-label="Cerrar ventana" class="close-button modal-close" data-action="close-modal">×</button><div id="modalContent"></div></section>
+</div>
+<div aria-live="polite" class="toast" id="toast" role="status"></div>
+<div class="print-only print-watermark">DEMO · DATOS ILUSTRATIVOS · SIN VALIDEZ COMERCIAL</div>
+</body>
+</html>
