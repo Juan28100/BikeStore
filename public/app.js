@@ -6,7 +6,7 @@
     orders: 'noma-demo-orders-v1', users: 'noma-demo-users-v1', favorites: 'noma-demo-favorites-v1'
   };
   const CATEGORIES = ['Bicicletas de montaña', 'Bicicletas de ruta', 'Bicicletas eléctricas', 'Cascos y protección', 'Ropa de ciclismo', 'Accesorios', 'Componentes y repuestos'];
-  const IMG = (name) => `assets/bikestore/${name}.jpg`;
+  const IMG = (name) => `/assets/bikestore/${name}.jpg`;
   const IMAGE_OPTIONS = ['bike-mountain', 'bike-kids', 'bike-city', 'bike-road-white', 'bike-trail-blue', 'bike-road', 'bike-hero', 'helmets', 'helmet-route', 'helmet-kids', 'apparel-set', 'apparel-jersey', 'apparel-black', 'road-kit', 'components', 'rear-light', 'lights', 'hero-ride'].map(IMG);
   const clone = (value) => JSON.parse(JSON.stringify(value));
   const currency = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
@@ -49,7 +49,8 @@
     if (text !== undefined && text !== null) element.textContent = String(text);
     return element;
   };
-  const safeImage = (value) => IMAGE_OPTIONS.includes(value) ? value : IMG('bike-mountain');
+  const isUploadedProductImage = (value) => typeof value === 'string' && /^\/api\/images\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpg|png|webp)$/.test(value);
+  const safeImage = (value) => IMAGE_OPTIONS.includes(value) || isUploadedProductImage(value) ? value : IMG('bike-mountain');
   const clampInt = (value, min, max) => Math.min(max, Math.max(min, Math.trunc(Number(value) || min)));
 
   function load(key, fallback, validator) {
@@ -104,6 +105,7 @@
   let lastBrowseUrl = '/catalogo';
   let toastTimer;
   let lastModalTrigger = null;
+  let activeModalCleanup = null;
 
   function save(key, value) {
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) { showToast('No se pudo guardar en este navegador.'); }
@@ -119,10 +121,12 @@
   async function apiRequest(path, options = {}) {
     const headers = new Headers(options.headers || {});
     headers.set('Accept', 'application/json');
-    if (options.body !== undefined) headers.set('Content-Type', 'application/json');
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+    if (isFormData) headers.delete('Content-Type');
+    else if (options.body !== undefined) headers.set('Content-Type', 'application/json');
     const response = await fetch(`/api${path}`, {
       method: options.method || 'GET', credentials: 'same-origin', headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body)
+      body: options.body === undefined ? undefined : isFormData ? options.body : JSON.stringify(options.body)
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || 'No se pudo conectar con el servidor.');
@@ -136,12 +140,21 @@
     document.body.classList.toggle('admin-session', isAdmin);
     button.textContent = currentUser ? 'Mi cuenta' : 'Iniciar sesión';
     button.title = currentUser?.email || 'Iniciar sesión';
-    button.hidden = isAdmin;
     if (logout) logout.hidden = !currentUser;
     const register = $('.header-register');
     if (register) register.hidden = Boolean(currentUser);
+    const mobileLogin = $('.mobile-menu-login');
+    if (mobileLogin) mobileLogin.hidden = Boolean(currentUser);
+    const mobileRegister = $('.mobile-menu-register');
+    if (mobileRegister) mobileRegister.hidden = Boolean(currentUser);
+    const mobileLogout = $('.mobile-menu-logout');
+    if (mobileLogout) mobileLogout.hidden = !currentUser;
     const adminLink = $('#adminNavLink');
     if (adminLink) adminLink.hidden = !isAdmin;
+  }
+  function closeMobileMenu() {
+    $('.main-nav')?.classList.remove('menu-open');
+    $('[data-action="menu"]')?.setAttribute('aria-expanded', 'false');
   }
   function applyServerCart(data) {
     cart = Array.isArray(data.items) ? data.items.filter((item) => item && typeof item.productId === 'string').map((item) => ({
@@ -162,7 +175,7 @@
         cart = [];
         backendReady = true;
         renderProducts(); renderCart();
-        setView('admin');
+        renderRoute({ scroll: false });
         return true;
       }
       const serverCart = await apiRequest('/cart');
@@ -458,8 +471,6 @@
     if (route.name === 'admin' && currentUser?.role !== 'admin') {
       history.replaceState({ bikeStoreRoute: true }, '', '/'); route = parseRoute();
       renderAccount('login'); showToast('Inicia sesión con la cuenta administradora para continuar.');
-    } else if (currentUser?.role === 'admin' && route.name !== 'admin') {
-      history.replaceState({ bikeStoreRoute: true }, '', '/admin'); route = parseRoute();
     }
     if (route.name === 'product' && !backendReady) return;
     if (route.name === 'product' && !productFor(route.productId)) {
@@ -548,6 +559,7 @@
   }
 
   function showModal(content) {
+    if (activeModalCleanup) { activeModalCleanup(); activeModalCleanup = null; }
     lastModalTrigger = document.activeElement;
     const heading = content.querySelector('h2');
     if (heading) heading.id = 'modalTitle';
@@ -558,6 +570,7 @@
   function closeModal() {
     const backdrop = $('#modalBackdrop');
     if (!backdrop || backdrop.hidden) return;
+    if (activeModalCleanup) { activeModalCleanup(); activeModalCleanup = null; }
     backdrop.hidden = true; document.body.style.overflow = '';
     if (lastModalTrigger && typeof lastModalTrigger.focus === 'function') lastModalTrigger.focus();
   }
@@ -599,7 +612,6 @@
         });
         await syncBackend(); closeModal();
         showToast(isRegister ? 'Cuenta creada; el carrito quedó asociado.' : 'Sesión iniciada; se sincronizó tu carrito.');
-        if (currentUser?.role === 'admin') setView('admin');
       } catch (error) {
         errorLine.textContent = error.message; errorLine.hidden = false;
       } finally { submit.disabled = false; }
@@ -760,7 +772,7 @@
       const text = node('span'); text.append(node('strong', '', product.name), node('small', '', product.id)); productWrap.append(image, text); productCell.append(productWrap); row.append(productCell, node('td', '', product.category), node('td', '', fmt(product.price)), node('td', '', `${product.stock} unidades`));
       const status = node('td'); status.append(node('span', `state-pill${product.active ? '' : ' off'}`, product.active ? 'Activo' : 'Inactivo')); row.append(status);
       const actionCell = node('td'); const edit = node('button', 'table-action', 'Editar'); edit.type = 'button'; edit.dataset.action = 'edit-product'; edit.dataset.productId = product.id; actionCell.append(edit);
-      if (product.active) { const remove = node('button', 'table-action', 'Desactivar'); remove.type = 'button'; remove.dataset.action = 'delete-product'; remove.dataset.productId = product.id; actionCell.append(remove); }
+      if (product.active) { const remove = node('button', 'table-action', 'Eliminar'); remove.type = 'button'; remove.title = `Eliminar ${product.name} del catálogo (conserva el historial)`; remove.setAttribute('aria-label', `Eliminar ${product.name} del catálogo`); remove.dataset.action = 'delete-product'; remove.dataset.productId = product.id; actionCell.append(remove); }
       row.append(actionCell); tbody.append(row);
     });
     if (!list.length) { const row = node('tr'); const cell = node('td', 'empty-row', 'No encontramos productos.'); cell.colSpan = 6; row.append(cell); tbody.append(row); }
@@ -799,16 +811,189 @@
     const name = modalFormLabel('Nombre', 'name', 'text', { minlength: 2, placeholder: 'Nombre del producto' });
     const categoryLabel = node('label', '', 'Categoría'); const categorySelect = node('select'); categorySelect.name = 'category'; categorySelect.required = true;
     CATEGORIES.forEach((cat) => { const option = node('option', '', cat); option.value = cat; categorySelect.append(option); }); categoryLabel.append(categorySelect);
-    const price = modalFormLabel('Precio ilustrativo (COP)', 'price', 'number', { placeholder: '250000' }); price.querySelector('input').min = '1000'; price.querySelector('input').max = '10000000'; price.querySelector('input').step = '1000';
+    const price = modalFormLabel('Precio ilustrativo (COP)', 'price', 'number', { placeholder: '250000' }); price.querySelector('input').min = '1000'; price.querySelector('input').max = '10000000'; price.querySelector('input').step = '1';
     const stock = modalFormLabel('Unidades disponibles', 'stock', 'number', { placeholder: '10' }); stock.querySelector('input').min = '0'; stock.querySelector('input').max = '10000'; stock.querySelector('input').step = '1';
     const description = modalFormLabel('Descripción', 'description', 'textarea'); description.querySelector('textarea').required = false; description.querySelector('textarea').maxLength = 260; description.querySelector('textarea').placeholder = 'Una breve descripción para el catálogo.';
-    const imageLabel = node('label', '', 'Imagen de la biblioteca demo'); const imageSelect = node('select'); imageSelect.name = 'image'; IMAGE_OPTIONS.forEach((path, index) => { const option = node('option', '', `Imagen ${String(index + 1).padStart(2, '0')}`); option.value = path; imageSelect.append(option); }); imageLabel.append(imageSelect);
+    const imageControls = node('div', 'admin-image-controls');
+    const imageLabel = node('label', '', 'Elegir de la biblioteca'); const imageSelect = node('select'); imageSelect.name = 'image'; imageSelect.setAttribute('aria-label', 'Elegir imagen de la biblioteca');
+    IMAGE_OPTIONS.forEach((path, index) => { const option = node('option', '', `Imagen ${String(index + 1).padStart(2, '0')}`); option.value = path; imageSelect.append(option); });
+    if (product && isUploadedProductImage(product.image) && !IMAGE_OPTIONS.includes(product.image)) { const option = node('option', '', 'Imagen propia actual'); option.value = product.image; imageSelect.append(option); }
+    imageLabel.append(imageSelect);
+    const uploadLabel = node('label', 'admin-image-upload', 'Foto propia (desactivada en esta versión)'); const fileInput = node('input'); fileInput.type = 'file'; fileInput.name = 'imageFile'; fileInput.accept = 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp'; fileInput.disabled = true; fileInput.setAttribute('aria-describedby', 'productImageHint'); uploadLabel.append(fileInput);
+    const imageHint = node('p', 'admin-image-hint', 'Carga desactivada en esta versión: falta configurar y verificar el almacenamiento R2. La biblioteca incluida sigue disponible.'); imageHint.id = 'productImageHint';
+    const imagePreview = node('div', 'admin-image-preview'); const previewImage = node('img'); previewImage.src = safeImage(product?.image || IMAGE_OPTIONS[0]); previewImage.alt = product ? `Vista previa de ${product.name}` : 'Vista previa de la imagen seleccionada'; previewImage.loading = 'lazy';
+    const previewCaption = node('span', 'admin-image-preview-caption', product ? 'Imagen actual del producto' : 'Vista previa'); imagePreview.append(previewImage, previewCaption);
+    imageControls.append(imageLabel, uploadLabel, imageHint, imagePreview);
     const activeLabel = node('label', '', 'Estado del producto'); const activeSelect = node('select'); activeSelect.name = 'active'; [['true', 'Activo'], ['false', 'Inactivo']].forEach(([value, label]) => { const option = node('option', '', label); option.value = value; activeSelect.append(option); }); activeLabel.append(activeSelect);
-    form.append(name, categoryLabel, price, stock, description, imageLabel, activeLabel);
+    form.append(name, categoryLabel, price, stock, description, imageControls, activeLabel);
     const submit = node('button', 'button button-dark button-wide', product ? 'Guardar cambios' : 'Crear producto'); submit.type = 'submit'; form.append(submit);
     if (product) {
       form.elements.name.value = product.name; form.elements.category.value = product.category; form.elements.price.value = String(product.price); form.elements.stock.value = String(product.stock); form.elements.description.value = product.description || ''; form.elements.image.value = safeImage(product.image); form.elements.active.value = String(product.active);
     }
+    let selectedImageFile = null;
+    let imageUploadsEnabled = false;
+    let productFormSaving = false;
+    let uploadedImagePendingSave = false;
+    let pendingUploadedImagePath = '';
+    let previewObjectUrl = '';
+    const releasePreview = () => { if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl); previewObjectUrl = ''; };
+    imageSelect.addEventListener('change', () => {
+      selectedImageFile = null; fileInput.value = ''; releasePreview();
+      if (imageSelect.value !== pendingUploadedImagePath) uploadedImagePendingSave = false;
+      previewImage.src = safeImage(imageSelect.value);
+      previewCaption.textContent = imageSelect.selectedOptions[0]?.textContent || 'Imagen de la biblioteca';
+    });
+    const MAX_SOURCE_IMAGE_BYTES = 32 * 1024 * 1024;
+    const MAX_SOURCE_IMAGE_DIMENSION = 16000;
+    const MAX_SOURCE_IMAGE_PIXELS = 50000000;
+    const MAX_NORMALIZED_IMAGE_BYTES = 4 * 1024 * 1024;
+    const MAX_NORMALIZED_IMAGE_DIMENSION = 1600;
+    const MAX_NORMALIZED_IMAGE_PIXELS = 1500000;
+    const MAX_IMAGE_HEADER_SCAN_BYTES = 1024 * 1024;
+    const inspectImageDimensionsFromHeader = async (file) => {
+      const bytes = new Uint8Array(await file.slice(0, Math.min(file.size, MAX_IMAGE_HEADER_SCAN_BYTES)).arrayBuffer());
+      const ascii = (offset, text) => offset >= 0 && offset + text.length <= bytes.length && [...text].every((character, index) => bytes[offset + index] === character.charCodeAt(0));
+      const u16be = (offset) => (bytes[offset] << 8) | bytes[offset + 1];
+      const u16le = (offset) => bytes[offset] | (bytes[offset + 1] << 8);
+      const u24le = (offset) => bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16);
+      const u32be = (offset) => ((bytes[offset] << 24) >>> 0) + (bytes[offset + 1] << 16) + (bytes[offset + 2] << 8) + bytes[offset + 3];
+      const u32le = (offset) => bytes[offset] + (bytes[offset + 1] << 8) + (bytes[offset + 2] << 16) + ((bytes[offset + 3] << 24) >>> 0);
+      if (bytes.length >= 33 && bytes[0] === 137 && ascii(1, 'PNG\r\n\x1a\n') && u32be(8) === 13 && ascii(12, 'IHDR')) {
+        let crc = 0xffffffff;
+        for (let index = 12; index < 29; index += 1) {
+          crc ^= bytes[index];
+          for (let bit = 0; bit < 8; bit += 1) crc = crc & 1 ? crc >>> 1 ^ 0xedb88320 : crc >>> 1;
+        }
+        if (((crc ^ 0xffffffff) >>> 0) !== u32be(29)) return null;
+        return { mimeType: 'image/png', width: u32be(16), height: u32be(20) };
+      }
+      if (bytes.length >= 4 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+        const startOfFrame = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf]);
+        let offset = 2;
+        while (offset + 1 < bytes.length) {
+          if (bytes[offset] !== 0xff) return null;
+          while (offset < bytes.length && bytes[offset] === 0xff) offset += 1;
+          if (offset >= bytes.length) return null;
+          const marker = bytes[offset++];
+          if (marker === 0x00 || marker === 0xd9 || marker === 0xda) return null;
+          if (marker === 0x01 || marker === 0xd8 || marker >= 0xd0 && marker <= 0xd7) continue;
+          if (offset + 2 > bytes.length) return null;
+          const segmentLength = u16be(offset);
+          if (segmentLength < 2 || offset + segmentLength > bytes.length) return null;
+          if (startOfFrame.has(marker)) {
+            if (segmentLength < 8) return null;
+            const height = u16be(offset + 3);
+            const width = u16be(offset + 5);
+            const components = bytes[offset + 7];
+            if (!components || segmentLength < 8 + components * 3) return null;
+            return { mimeType: 'image/jpeg', width, height };
+          }
+          offset += segmentLength;
+        }
+        return null;
+      }
+      if (bytes.length >= 30 && ascii(0, 'RIFF') && ascii(8, 'WEBP')) {
+        const riffEnd = u32le(4) + 8;
+        if (riffEnd !== file.size || riffEnd < 30) return null;
+        let offset = 12;
+        let chunkCount = 0;
+        let canvasDimensions = null;
+        while (offset + 8 <= Math.min(riffEnd, bytes.length) && chunkCount < 1024) {
+          chunkCount += 1;
+          const chunkType = String.fromCharCode(...bytes.subarray(offset, offset + 4));
+          const chunkLength = u32le(offset + 4);
+          const dataOffset = offset + 8;
+          const dataEnd = dataOffset + chunkLength;
+          const nextOffset = dataEnd + (chunkLength & 1);
+          if (dataEnd > riffEnd || nextOffset > riffEnd || nextOffset > bytes.length) return null;
+          if (chunkType === 'VP8X') {
+            if (chunkLength < 10) return null;
+            const width = u24le(dataOffset + 4) + 1;
+            const height = u24le(dataOffset + 7) + 1;
+            if (width > MAX_SOURCE_IMAGE_DIMENSION || height > MAX_SOURCE_IMAGE_DIMENSION || width * height > MAX_SOURCE_IMAGE_PIXELS) return { mimeType: 'image/webp', width, height };
+            if (bytes[dataOffset] & 0x02) return { mimeType: 'image/webp', width, height, animated: true };
+            canvasDimensions = { width, height };
+          } else if (chunkType === 'VP8 ') {
+            if (chunkLength < 10 || bytes[dataOffset + 3] !== 0x9d || bytes[dataOffset + 4] !== 0x01 || bytes[dataOffset + 5] !== 0x2a) return null;
+            const width = u16le(dataOffset + 6) & 0x3fff;
+            const height = u16le(dataOffset + 8) & 0x3fff;
+            if (canvasDimensions) return { mimeType: 'image/webp', width: Math.max(width, canvasDimensions.width), height: Math.max(height, canvasDimensions.height) };
+            return { mimeType: 'image/webp', width, height };
+          } else if (chunkType === 'VP8L') {
+            if (chunkLength < 5 || bytes[dataOffset] !== 0x2f) return null;
+            const width = 1 + bytes[dataOffset + 1] + ((bytes[dataOffset + 2] & 0x3f) << 8);
+            const height = 1 + (bytes[dataOffset + 2] >>> 6) + (bytes[dataOffset + 3] << 2) + ((bytes[dataOffset + 4] & 0x0f) << 10);
+            if (canvasDimensions) return { mimeType: 'image/webp', width: Math.max(width, canvasDimensions.width), height: Math.max(height, canvasDimensions.height) };
+            return { mimeType: 'image/webp', width, height };
+          }
+          offset = nextOffset;
+        }
+      }
+      return null;
+    };
+    const normalizeImageFile = async (file) => {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      const mimeType = String(file.type || '').toLowerCase();
+      const extensionAllowed = /\.(png|jpe?g|webp)$/i.test(file.name || '');
+      if ((mimeType && !allowedTypes.includes(mimeType)) || (!mimeType && !extensionAllowed)) throw new Error('Elige una foto PNG, JPG o WebP.');
+      if (file.size < 1 || file.size > MAX_SOURCE_IMAGE_BYTES) throw new Error('La foto original debe pesar hasta 32 MiB.');
+      const imageHeader = await inspectImageDimensionsFromHeader(file);
+      if (!imageHeader || imageHeader.animated) throw new Error('No se pudo verificar la cabecera de esta foto. Elige un JPEG, PNG o WebP estático válido.');
+      if (mimeType && mimeType !== imageHeader.mimeType) throw new Error('El tipo de archivo no coincide con su contenido. Elige un JPEG, PNG o WebP válido.');
+      const headerPixels = imageHeader.width * imageHeader.height;
+      if (!imageHeader.width || !imageHeader.height || imageHeader.width > MAX_SOURCE_IMAGE_DIMENSION || imageHeader.height > MAX_SOURCE_IMAGE_DIMENSION || headerPixels > MAX_SOURCE_IMAGE_PIXELS) throw new Error('La foto supera 50 MP o 16.000 px por lado; se rechazó antes de decodificarla.');
+      let sourceUrl = '';
+      try {
+        const sourceBlob = new Blob([file], { type: mimeType || 'application/octet-stream' });
+        sourceUrl = URL.createObjectURL(sourceBlob);
+        const imageSource = await new Promise((resolve, reject) => {
+          const decoded = new Image();
+          decoded.onload = () => resolve(decoded);
+          decoded.onerror = () => reject(new Error('El navegador no pudo decodificar esta foto. Elige un PNG, JPG o WebP válido.'));
+          decoded.src = sourceUrl;
+        });
+        const sourceWidth = imageSource.naturalWidth;
+        const sourceHeight = imageSource.naturalHeight;
+        const sourcePixels = sourceWidth * sourceHeight;
+        if (!sourceWidth || !sourceHeight || sourceWidth > MAX_SOURCE_IMAGE_DIMENSION || sourceHeight > MAX_SOURCE_IMAGE_DIMENSION || sourcePixels > MAX_SOURCE_IMAGE_PIXELS) throw new Error('La foto supera 50 MP o 16.000 px por lado.');
+        const dimensionsMatchHeader = sourceWidth === imageHeader.width && sourceHeight === imageHeader.height || sourceWidth === imageHeader.height && sourceHeight === imageHeader.width;
+        if (!dimensionsMatchHeader) throw new Error('Las dimensiones decodificadas no coinciden con la cabecera de la foto.');
+        const scale = Math.min(1, MAX_NORMALIZED_IMAGE_DIMENSION / sourceWidth, MAX_NORMALIZED_IMAGE_DIMENSION / sourceHeight, Math.sqrt(MAX_NORMALIZED_IMAGE_PIXELS / sourcePixels));
+        let width = Math.max(1, Math.floor(sourceWidth * scale));
+        let height = Math.max(1, Math.floor(sourceHeight * scale));
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('No se pudo preparar la foto en este navegador.');
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = 'high';
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+          canvas.width = width;
+          canvas.height = height;
+          context.clearRect(0, 0, width, height);
+          context.drawImage(imageSource, 0, 0, width, height);
+          const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+          if (!pngBlob || pngBlob.type !== 'image/png' || pngBlob.size < 1) throw new Error('No se pudo convertir la foto a PNG en este navegador.');
+          if (pngBlob.size <= MAX_NORMALIZED_IMAGE_BYTES) {
+            const baseName = String(file.name || 'producto').replace(/\.[^.]*$/, '').replace(/[^A-Za-z0-9._-]+/g, '-').slice(0, 80) || 'producto';
+            return new File([pngBlob], `${baseName}.png`, { type: 'image/png', lastModified: Date.now() });
+          }
+          width = Math.max(1, Math.floor(width * 0.8));
+          height = Math.max(1, Math.floor(height * 0.8));
+        }
+        throw new Error('La foto convertida supera 4 MiB incluso después de reducirla. Prueba con una imagen más pequeña.');
+      } finally { if (sourceUrl) URL.revokeObjectURL(sourceUrl); }
+    };
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      fileInput.disabled = true; selectedImageFile = null; previewCaption.textContent = 'Validando la imagen…';
+      try {
+        selectedImageFile = await normalizeImageFile(file);
+        releasePreview(); previewObjectUrl = URL.createObjectURL(selectedImageFile); previewImage.src = previewObjectUrl; previewCaption.textContent = `Vista previa PNG: ${selectedImageFile.name}`;
+      } catch (error) {
+        selectedImageFile = null; fileInput.value = ''; releasePreview(); previewImage.src = safeImage(imageSelect.value); previewCaption.textContent = imageSelect.selectedOptions[0]?.textContent || 'Imagen de la biblioteca'; showToast(error.message || 'La imagen está dañada o incompleta y no se puede abrir.');
+      } finally { fileInput.disabled = !imageUploadsEnabled || productFormSaving; }
+    });
     let lastPatchPayload = '';
     let lastPatchKey = '';
     form.addEventListener('submit', async (event) => {
@@ -817,8 +1002,22 @@
       if (!Number.isFinite(parsedPrice) || parsedPrice < 1000 || parsedPrice > 10000000 || !Number.isInteger(parsedStock) || parsedStock < 0 || parsedStock > 10000) { showToast('Revisa precio y existencias.'); return; }
       const updated = { id: product?.id || `custom-${globalThis.crypto?.randomUUID?.().slice(0, 10) || Math.random().toString(36).slice(2, 12)}`, name: f.name.value.trim().slice(0, 80), category: f.category.value, price: Math.round(parsedPrice), stock: parsedStock, description: f.description.value.trim().slice(0, 260), image: safeImage(f.image.value), active: f.active.value === 'true' };
       if (updated.name.length < 2) { showToast('El nombre debe tener al menos 2 caracteres.'); return; }
+      productFormSaving = true;
+      const formControls = [...form.elements]; formControls.forEach((control) => { control.disabled = true; });
       submit.disabled = true;
       try {
+        if (selectedImageFile) {
+          submit.textContent = 'Subiendo imagen…';
+          const imageForm = new FormData(); imageForm.append('image', selectedImageFile, selectedImageFile.name);
+          const uploaded = await apiRequest('/admin/images', { method: 'POST', body: imageForm });
+          if (!isUploadedProductImage(uploaded.image)) throw new Error('El servidor devolvió una ruta de imagen no válida.');
+          let uploadedOption = [...imageSelect.options].find((option) => option.value === uploaded.image);
+          if (!uploadedOption) { uploadedOption = node('option', '', 'Imagen propia cargada'); uploadedOption.value = uploaded.image; imageSelect.append(uploadedOption); }
+          imageSelect.value = uploaded.image; updated.image = uploaded.image;
+          pendingUploadedImagePath = uploaded.image; uploadedImagePendingSave = true;
+          selectedImageFile = null; fileInput.value = ''; releasePreview(); previewImage.src = uploaded.image; previewCaption.textContent = 'Imagen propia cargada';
+        }
+        submit.textContent = product ? 'Guardando cambios…' : 'Creando producto…';
         const patchPayload = JSON.stringify(updated);
         if (product && patchPayload !== lastPatchPayload) {
           lastPatchPayload = patchPayload;
@@ -828,11 +1027,30 @@
           method: product ? 'PATCH' : 'POST', body: updated,
           headers: product ? { 'Idempotency-Key': lastPatchKey } : undefined
         });
+        uploadedImagePendingSave = false;
+        releasePreview();
         closeModal(); await syncBackend(); await refreshAdmin(); showToast(product ? 'Producto actualizado.' : 'Producto añadido.');
-      } catch (error) { showToast(error.message); }
-      finally { submit.disabled = false; }
+      } catch (error) {
+        const message = error.message || 'No se pudo guardar el producto.';
+        showToast(uploadedImagePendingSave && imageSelect.value === pendingUploadedImagePath ? `${message} La imagen subida se conserva en el formulario; vuelve a guardar para asociarla. No se elimina automáticamente.` : message);
+      }
+      finally {
+        productFormSaving = false;
+        formControls.forEach((control) => { control.disabled = control === fileInput ? !imageUploadsEnabled : false; });
+        submit.disabled = false; submit.textContent = product ? 'Guardar cambios' : 'Crear producto';
+      }
     });
-    showModal(box); box.append(form);
+    showModal(box); activeModalCleanup = releasePreview; box.append(form);
+    apiRequest('/admin/images/status').then((status) => {
+      imageUploadsEnabled = status.enabled === true;
+      if (!productFormSaving) fileInput.disabled = !imageUploadsEnabled;
+      if (uploadLabel.firstChild) uploadLabel.firstChild.textContent = imageUploadsEnabled ? 'O elegir JPG, PNG o WebP (se convertirá a PNG)' : 'Foto propia (desactivada en esta versión)';
+      imageHint.textContent = status.message || (imageUploadsEnabled ? 'La foto se normaliza a PNG en el navegador y el Worker vuelve a decodificarla antes de guardar.' : 'Carga desactivada hasta configurar R2 y verificar el tiempo de CPU del Worker. La biblioteca incluida sigue disponible.');
+    }).catch(() => {
+      imageUploadsEnabled = false; fileInput.disabled = true;
+      if (uploadLabel.firstChild) uploadLabel.firstChild.textContent = 'Foto propia (desactivada en esta versión)';
+      imageHint.textContent = 'No se pudo verificar la configuración; la carga de fotos permanece desactivada. La biblioteca incluida sigue disponible.';
+    });
   }
 
   function reportRows() {
@@ -853,12 +1071,12 @@
     if (routeTrigger) {
       event.preventDefault();
       const target = new URL(routeTrigger.getAttribute('href') || routeTrigger.dataset.route || '/', window.location.origin);
-      const menu = $('.main-nav'); menu?.classList.remove('menu-open'); $('[data-action="menu"]')?.setAttribute('aria-expanded', 'false');
+      closeMobileMenu();
       navigateTo(target.pathname, new URLSearchParams(target.search));
       return;
     }
     const viewTrigger = event.target.closest('[data-view]');
-    if (viewTrigger) { event.preventDefault(); const view = viewTrigger.dataset.view; if (view === 'admin') currentAdminTab = 'products'; setView(view); if (viewTrigger.dataset.scroll) document.getElementById(viewTrigger.dataset.scroll)?.scrollIntoView({ behavior: 'smooth' }); return; }
+    if (viewTrigger) { event.preventDefault(); if (viewTrigger.closest('.main-nav')) closeMobileMenu(); const view = viewTrigger.dataset.view; if (view === 'admin') currentAdminTab = 'products'; setView(view); if (viewTrigger.dataset.scroll) document.getElementById(viewTrigger.dataset.scroll)?.scrollIntoView({ behavior: 'smooth' }); return; }
     const tabTrigger = event.target.closest('[data-admin-tab]');
     if (tabTrigger) { showAdminTab(tabTrigger.dataset.adminTab); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
     const categoryTrigger = event.target.closest('[data-category]');
@@ -874,6 +1092,7 @@
     }
     const action = event.target.closest('[data-action]');
     if (!action) return;
+    if (action.closest('.main-nav')) closeMobileMenu();
     const id = action.dataset.productId;
     switch (action.dataset.action) {
       case 'menu': { const nav = $('.main-nav'); const open = nav.classList.toggle('menu-open'); action.setAttribute('aria-expanded', String(open)); break; }
@@ -903,9 +1122,11 @@
       case 'new-product': renderProductForm(); break;
       case 'edit-product': renderProductForm(productFor(id)); break;
       case 'delete-product': {
-        if (!window.confirm('¿Dar de baja este producto? Se ocultará del catálogo y se quitará de los carritos.')) break;
+        const product = productFor(id);
+        if (!product) { showToast('No encontramos el producto.'); break; }
+        if (!window.confirm(`¿Eliminar «${product.name}» del catálogo? Se ocultará de la tienda, se quitará de los carritos y el registro se conservará para mantener el historial de inventario.`)) break;
         apiRequest(`/admin/products/${encodeURIComponent(id)}`, { method: 'DELETE' })
-          .then(() => syncBackend()).then(() => refreshAdmin()).then(() => showToast('Producto dado de baja.'))
+          .then(() => syncBackend()).then(() => refreshAdmin()).then(() => showToast('Producto eliminado del catálogo; se conservó el historial.'))
           .catch((error) => showToast(error.message));
         break;
       }

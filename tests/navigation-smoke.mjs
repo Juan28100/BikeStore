@@ -38,10 +38,14 @@ assert.match(canonicalHtml, /<base href="\/"\s*\/?\s*>/i, 'root base is required
 
 const appResponse = await fetch(`${base}/app.js`);
 assert.equal(appResponse.status, 200, 'app.js must remain accessible at the root on deep routes');
-const app = await appResponse.text();
+const app = (await appResponse.text()).replace(/\r\n/g, '\n');
 assert.ok(app.includes("p.gear === true"), 'Accessories filtering must use the server product gear flag');
 assert.ok(app.includes("products.filter((p) => p.active).slice().sort((a, b) => Number(b.featured) - Number(a.featured)).slice(0, 4)"), 'Home recommendations must be capped at four products');
 assert.ok(app.includes("adminLink.hidden = !isAdmin"), 'admin link visibility must depend on authenticated admin role');
+assert.ok(app.includes("renderRoute({ scroll: false });\n        return true;"), 'an admin session must render the route the admin is visiting instead of forcing the panel');
+assert.ok(!/currentUser\?\.role === 'admin' && route\.name !== 'admin'/.test(app), 'an admin must be able to stay on public store routes');
+assert.ok(app.includes("route.name === 'admin' && currentUser?.role !== 'admin'"), 'the admin view must remain restricted to authenticated admins');
+assert.ok(!app.includes("if (currentUser?.role === 'admin') setView('admin')"), 'sign-in must not force the admin directly into inventory management');
 assert.ok(app.includes("window.addEventListener('popstate'"), 'back/forward history must re-render the route');
 
 const cssResponse = await fetch(`${base}/styles.css`);
@@ -49,6 +53,8 @@ assert.equal(cssResponse.status, 200, 'styles.css must remain accessible at the 
 const css = await cssResponse.text();
 assert.ok(css.includes('.accessories-banner'), 'the Accessories page needs its responsive visual styles');
 assert.ok(css.includes('.page-search-field{display:flex'), 'mobile catalog/accessory search must be available');
+assert.ok(!css.includes('body.admin-session .main-nav .nav-link:not'), 'admin sessions must not hide the public store navigation');
+assert.ok(css.includes('body.admin-session .bag-button') && css.includes('body.admin-session .quick-add') && css.includes('body.admin-session .product-detail-actions'), 'admin storefront browsing must not offer cart actions');
 
 const imageResponse = await fetch(`${base}/assets/bikestore/road-kit.jpg`);
 assert.equal(imageResponse.status, 200, 'accessories banner image must be served');

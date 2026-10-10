@@ -7,17 +7,11 @@
 <meta content="#171717" name="theme-color"/>
 <meta content="BikeStore — catálogo de ciclismo con existencias y carrito persistentes." name="description"/>
 <title>BIKESTORE — todo lo que tu bici necesita</title>
-<meta content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'" http-equiv="Content-Security-Policy"/>
+<meta content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; img-src 'self' data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'" http-equiv="Content-Security-Policy"/>
 <link href="styles.css" rel="stylesheet"/>
 <script defer="" src="app.js"></script>
 </head>
 <body>
-<div class="demo-ribbon" role="status">
-<span aria-hidden="true" class="ribbon-dot"></span>
-<span><strong>DEMO · ENTORNO DE PRUEBA</strong><span class="ribbon-copy">No se venden productos ni se procesan pagos o envíos reales.</span></span>
-<a href="/#demo-note">Qué significa</a>
-</div>
-<div class="topline"><span>TU PRÓXIMA AVENTURA EMPIEZA EN BIKESTORE</span><i aria-hidden="true"></i><span>Envío de demostración · sin costo real</span></div>
 <header class="site-header store-header">
 <a aria-label="BikeStore, inicio" class="brand-bike" data-route="/" href="/">
 <img alt="" aria-hidden="true" class="brand-bike-mark" src="assets/bikestore/bike-mark.svg"/><span class="brand-bike-name">BIKE<span>STORE</span></span>
@@ -27,6 +21,9 @@
 <a class="nav-link" data-route="/catalogo" href="/catalogo">Catálogo</a>
 <a class="nav-link" data-route="/accesorios" href="/accesorios">Accesorios</a>
 <button class="nav-link" data-view="admin" hidden="" id="adminNavLink">Administración</button>
+<button class="nav-link mobile-menu-action mobile-menu-login" data-action="account" type="button">Iniciar sesión</button>
+<button class="nav-link mobile-menu-action mobile-menu-register" data-action="register" type="button">Registrarse</button>
+<button class="nav-link mobile-menu-action mobile-menu-logout" data-action="logout" hidden="" type="button">Cerrar sesión</button>
 </nav>
 <div class="header-actions">
 <button class="header-text-button account-button" data-action="account">Iniciar sesión</button>

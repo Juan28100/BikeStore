@@ -11,6 +11,17 @@ FAILED_LOGIN_IP='198.51.100.44'
 EXPIRY_LOGIN_IP='198.51.100.47'
 SERVER_PID=''
 MOCK_PID=''
+hash_test_password() {
+  BIKESTORE_TEST_PASSWORD="$1" BIKESTORE_TEST_ITERATIONS="${2:-100000}" node --input-type=module -e '
+import { pbkdf2Sync, randomBytes } from "node:crypto";
+const password = process.env.BIKESTORE_TEST_PASSWORD;
+const iterations = Number(process.env.BIKESTORE_TEST_ITERATIONS);
+const salt = randomBytes(16);
+const hash = pbkdf2Sync(password, salt, iterations, 32, "sha256");
+const b64url = (value) => value.toString("base64url");
+process.stdout.write(`pbkdf2-sha256$${iterations}$${b64url(salt)}$${b64url(hash)}\n`);
+'
+}
 kill_tree() {
   local parent="$1" child
   while read -r child; do
@@ -34,12 +45,25 @@ trap cleanup EXIT
 cp app.js public/app.js
 cp index.html public/index.html
 cp styles.css public/styles.css
+node --check tests/image-upload-worker-smoke.mjs
+node tests/image-upload-worker-smoke.mjs
+if command -v "${BIKESTORE_CHROMIUM_PATH:-/usr/bin/chromium}" >/dev/null 2>&1; then
+  BIKESTORE_PRODUCT_FORM_VIEWPORT=desktop node tests/product-form-smoke.mjs
+  BIKESTORE_PRODUCT_FORM_VIEWPORT=mobile node tests/product-form-smoke.mjs
+  BIKESTORE_PRODUCT_FORM_VIEWPORT=mobile BIKESTORE_PRODUCT_FORM_UPLOAD_ENABLED=false node tests/product-form-smoke.mjs
+  node tests/mobile-menu-smoke.mjs
+  node tests/mobile-account-actions-smoke.mjs
+  node tests/admin-product-delete-ui-smoke.mjs
+  node tests/demo-header-smoke.mjs
+else
+  printf 'SKIP browser smoke tests: instala Chromium o define BIKESTORE_CHROMIUM_PATH.\n'
+fi
 rm -rf "$STATE_DIR"
 mkdir -p "$STATE_DIR"
 
 printf 'y\n' | npx wrangler d1 migrations apply bikestore-store --local --persist-to "$STATE_DIR" >/dev/null
 TEST_ADMIN_PASSWORD="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url') + 'K8!')")"
-TEST_ADMIN_HASH="$(BIKESTORE_ADMIN_PASSWORD="$TEST_ADMIN_PASSWORD" node scripts/hash-admin-password.mjs)"
+TEST_ADMIN_HASH="$(hash_test_password "$TEST_ADMIN_PASSWORD")"
 SEED_SQL="INSERT INTO users (id, account_type, name, email, email_verified_at, role, password_hash) VALUES ('local-admin-smoke', 'account', 'Admin de prueba local', 'jjcorreagetial16@gmail.com', unixepoch(), 'admin', '$TEST_ADMIN_HASH') ON CONFLICT(id) DO UPDATE SET password_hash=excluded.password_hash, active=1"
 npx wrangler d1 execute bikestore-store --local --persist-to "$STATE_DIR" --command "$SEED_SQL" --json >/dev/null
 TEST_RUN_ID="$(node -e "process.stdout.write(require('node:crypto').randomUUID())")"
@@ -47,8 +71,8 @@ TEST_CUSTOMER_EMAIL="customer-${TEST_RUN_ID}@example.test"
 TEST_CUSTOMER_PASSWORD="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url') + 'M4!')")"
 TEST_RESET_EMAIL="reset-${TEST_RUN_ID}@example.test"
 TEST_RESET_PASSWORD="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url') + 'R5!')")"
-TEST_RESET_HASH="$(BIKESTORE_ADMIN_PASSWORD="$TEST_RESET_PASSWORD" node scripts/hash-admin-password.mjs)"
-SEED_RESET_SQL="INSERT INTO users (id, account_type, name, email, role, password_hash) VALUES ('local-reset-${TEST_RUN_ID}', 'account', 'Cuenta local de recuperación', '$TEST_RESET_EMAIL', 'customer', '$TEST_RESET_HASH')"
+TEST_RESET_HASH="$(hash_test_password "$TEST_RESET_PASSWORD" 210000)"
+SEED_RESET_SQL="INSERT INTO users (id, account_type, name, email, email_verified_at, role, password_hash) VALUES ('local-reset-${TEST_RUN_ID}', 'account', 'Cuenta local de recuperación', '$TEST_RESET_EMAIL', unixepoch(), 'customer', '$TEST_RESET_HASH')"
 npx wrangler d1 execute bikestore-store --local --persist-to "$STATE_DIR" --command "$SEED_RESET_SQL" --json >/dev/null
 MOCK_CONTROL_TOKEN="$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")"
 
@@ -95,11 +119,17 @@ node --check tests/public-assets-allowlist.mjs
 node --check tests/public-assets-safety.mjs
 node --check tests/wrangler-assets-smoke.mjs
 node --check tests/navigation-smoke.mjs
+node --check tests/product-form-smoke.mjs
+node --check tests/image-upload-worker-smoke.mjs
+node --check tests/mobile-menu-smoke.mjs
+node --check tests/mobile-account-actions-smoke.mjs
+node --check tests/admin-product-delete-ui-smoke.mjs
+node --check tests/demo-header-smoke.mjs
 node --check src/resend-mailer.mjs
 node --input-type=module --check < src/worker.js
 node tests/resend-mailer-smoke.mjs
 BIKESTORE_TEST_URL="http://127.0.0.1:$TEST_PORT" BIKESTORE_TEST_CUSTOMER_EMAIL="$TEST_CUSTOMER_EMAIL" BIKESTORE_TEST_CUSTOMER_PASSWORD="$TEST_CUSTOMER_PASSWORD" BIKESTORE_TEST_RESET_EMAIL="$TEST_RESET_EMAIL" BIKESTORE_TEST_RESET_PASSWORD="$TEST_RESET_PASSWORD" BIKESTORE_TEST_FAILED_LOGIN_IP="$FAILED_LOGIN_IP" BIKESTORE_TEST_RESEND_MOCK_URL="http://127.0.0.1:$MOCK_PORT" BIKESTORE_TEST_RESEND_CONTROL_TOKEN="$MOCK_CONTROL_TOKEN" node tests/api-smoke.mjs
-BIKESTORE_TEST_URL="http://127.0.0.1:$TEST_PORT" BIKESTORE_TEST_ADMIN_PASSWORD="$TEST_ADMIN_PASSWORD" BIKESTORE_TEST_CUSTOMER_EMAIL="$TEST_CUSTOMER_EMAIL" BIKESTORE_TEST_CUSTOMER_PASSWORD="$TEST_CUSTOMER_PASSWORD" BIKESTORE_TEST_RUN_ID="$TEST_RUN_ID" node tests/admin-smoke.mjs
+BIKESTORE_TEST_LOCAL_ONLY=1 BIKESTORE_TEST_STATE_DIR="$STATE_DIR" BIKESTORE_TEST_URL="http://127.0.0.1:$TEST_PORT" BIKESTORE_TEST_ADMIN_PASSWORD="$TEST_ADMIN_PASSWORD" BIKESTORE_TEST_CUSTOMER_EMAIL="$TEST_CUSTOMER_EMAIL" BIKESTORE_TEST_CUSTOMER_PASSWORD="$TEST_CUSTOMER_PASSWORD" BIKESTORE_TEST_RUN_ID="$TEST_RUN_ID" node tests/admin-smoke.mjs
 BIKESTORE_TEST_URL="http://127.0.0.1:$TEST_PORT" BIKESTORE_TEST_STATE_DIR="$STATE_DIR" BIKESTORE_TEST_RUN_ID="$TEST_RUN_ID" node tests/guest-lifecycle-smoke.mjs
 node tests/public-assets-safety.mjs
 BIKESTORE_TEST_URL="http://127.0.0.1:$TEST_PORT" node tests/navigation-smoke.mjs
@@ -132,7 +162,7 @@ BIKESTORE_TEST_URL="http://127.0.0.1:$TEST_PORT" node tests/health-schema-smoke.
 npx wrangler d1 execute bikestore-store --local --persist-to "$STATE_DIR" \
   --command 'ALTER TABLE password_reset_tokens_health_test RENAME TO password_reset_tokens' --json >/dev/null
 
-CHECK_SQL="SELECT (SELECT count(*) FROM inventory_transactions WHERE idempotency_key='admin-patch:${TEST_RUN_ID}:stock-to-3') AS idempotent_moves, (SELECT count(*) FROM auth_rate_limits) AS rate_rows, (SELECT count(*) FROM password_reset_tokens) AS reset_rows, (SELECT count(*) FROM carts c JOIN users u ON u.id=c.user_id WHERE u.email='jjcorreagetial16@gmail.com') AS admin_carts"
+CHECK_SQL="SELECT (SELECT count(*) FROM inventory_transactions WHERE idempotency_key='admin-patch:${TEST_RUN_ID}:stock-to-3') AS idempotent_moves, (SELECT count(*) FROM auth_rate_limits) AS rate_rows, (SELECT count(*) FROM password_reset_tokens) AS reset_rows, (SELECT count(*) FROM carts c JOIN users u ON u.id=c.user_id WHERE u.email='jjcorreagetial16@gmail.com') AS admin_carts, (SELECT CASE WHEN password_hash LIKE 'pbkdf2-sha256\$100000\$%' THEN 100000 ELSE 0 END FROM users WHERE email='${TEST_CUSTOMER_EMAIL}') AS customer_hash_iterations, (SELECT CASE WHEN password_hash LIKE 'pbkdf2-sha256\$100000\$%' THEN 100000 ELSE 0 END FROM users WHERE email='${TEST_RESET_EMAIL}') AS reset_hash_iterations"
 CHECK_JSON="$(npx wrangler d1 execute bikestore-store --local --persist-to "$STATE_DIR" --command "$CHECK_SQL" --json)"
 printf '%s' "$CHECK_JSON" | node --input-type=module -e '
 import assert from "node:assert/strict";
@@ -151,7 +181,9 @@ assert.equal(find(data, "idempotent_moves"), 1, "replayed admin adjustment must 
 assert.ok(find(data, "rate_rows") <= 50_000, "D1 auth limiter table must stay bounded");
 assert.ok(find(data, "reset_rows") <= 50_000, "password reset tokens must stay bounded by the account cap");
 assert.equal(find(data, "admin_carts"), 0, "administrator must never receive a cart");
-console.log("PASS D1 invariants: idempotent ledger, bounded rate rows, no admin cart");
+assert.equal(find(data, "customer_hash_iterations"), 100_000, "registration must generate production-compatible 100000-iteration hashes");
+assert.equal(find(data, "reset_hash_iterations"), 100_000, "password reset must generate production-compatible 100000-iteration hashes after accepting a historical account");
+console.log("PASS D1 invariants: idempotent ledger, bounded rate rows, no admin cart, register/reset PBKDF2 at 100000");
 '
 
 WRANGLER_LOG=debug npx wrangler deploy --dry-run >"$DRYRUN_LOG" 2>&1

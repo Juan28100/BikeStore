@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import path from 'node:path';
 
 const base = process.env.BIKESTORE_TEST_URL || 'http://127.0.0.1:8787';
+const baseUrl = new URL(base);
+assert.equal(baseUrl.protocol, 'http:', 'admin smoke tests are restricted to local HTTP');
+assert.ok(['127.0.0.1', 'localhost', '[::1]'].includes(baseUrl.hostname), 'admin smoke tests must never target production or a remote host');
 const password = process.env.BIKESTORE_TEST_ADMIN_PASSWORD;
 const customerEmail = process.env.BIKESTORE_TEST_CUSTOMER_EMAIL;
 const customerPassword = process.env.BIKESTORE_TEST_CUSTOMER_PASSWORD;
 const runId = process.env.BIKESTORE_TEST_RUN_ID || randomUUID();
+assert.equal(process.env.BIKESTORE_TEST_LOCAL_ONLY, '1', 'admin smoke tests must run only through the isolated local test runner');
+assert.equal(path.resolve(process.env.BIKESTORE_TEST_STATE_DIR || ''), path.resolve('.wrangler', 'test-state'), 'admin smoke tests require the temporary .wrangler/test-state D1 fixture');
 assert.ok(password && customerEmail && customerPassword, 'El runner debe proporcionar credenciales locales efímeras.');
 const adminCookies = new Map();
 const customerCookies = new Map();
@@ -108,8 +114,10 @@ const created = await call('/api/admin/products', { method: 'POST', body: {
   stock: 2, image: '/assets/bikestore/road-kit.jpg', description: 'Producto de prueba local.', active: true
 } });
 assert.equal(created.status, 201);
+const deniedDelete = await call(`/api/admin/products/${encodeURIComponent(newProductId)}`, { method: 'DELETE', jar: customerCookies });
+assert.equal(deniedDelete.status, 403, 'customer accounts must not delete catalog products');
 assert.equal((await call(`/api/admin/products/${encodeURIComponent(newProductId)}`, { method: 'DELETE' })).status, 200);
 const publicCatalog = await call('/api/products');
 assert.ok(!publicCatalog.data.products.some((item) => item.id === newProductId));
 
-console.log(`PASS admin-only: no admin cart, customer cart persistence, aggregate stock, idempotent PATCH ${idempotentKey}, concurrent adjustments, create/delete`);
+console.log(`PASS admin-only: no admin cart, customer cart persistence, aggregate stock, idempotent PATCH ${idempotentKey}, concurrent adjustments, create/delete; customer DELETE denied`);
